@@ -8,9 +8,14 @@ type ParsedArticle = {
   content: string | null;
 };
 
-type Action = "summary" | "theses" | "telegram";
+type Action = "summary" | "theses" | "telegram" | "translate";
 
 const ACTIONS: { id: Action; label: string; description: string }[] = [
+  {
+    id: "translate",
+    label: "Перевод",
+    description: "Полный перевод статьи на русский язык",
+  },
   {
     id: "summary",
     label: "О чем статья?",
@@ -27,6 +32,13 @@ const ACTIONS: { id: Action; label: string; description: string }[] = [
     description: "Готовый пост для публикации в Telegram",
   },
 ];
+
+const LOADING_MESSAGES: Record<Action, string> = {
+  translate: "Перевод статьи...",
+  summary: "Загрузка и парсинг статьи...",
+  theses: "Загрузка и парсинг статьи...",
+  telegram: "Загрузка и парсинг статьи...",
+};
 
 export default function ReferentApp() {
   const [url, setUrl] = useState("");
@@ -72,7 +84,37 @@ export default function ReferentApp() {
         return;
       }
 
-      setResult(JSON.stringify(data, null, 2));
+      const article = data as ParsedArticle;
+
+      if (action === "translate") {
+        const translateResponse = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: article.title,
+            content: article.content,
+          }),
+        });
+
+        const translateData = (await translateResponse.json()) as
+          | { translation?: string }
+          | { error?: string };
+
+        if (!translateResponse.ok) {
+          setError(
+            "error" in translateData && translateData.error
+              ? translateData.error
+              : "Ошибка перевода статьи",
+          );
+          setResult("");
+          return;
+        }
+
+        setResult("translation" in translateData ? (translateData.translation ?? "") : "");
+        return;
+      }
+
+      setResult(JSON.stringify(article, null, 2));
     } catch {
       setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте снова.");
       setResult("");
@@ -155,7 +197,9 @@ export default function ReferentApp() {
             {isLoading ? (
               <div className="flex h-full min-h-56 flex-col items-center justify-center gap-3 text-slate-500">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
-                <p className="text-sm">Загрузка и парсинг статьи...</p>
+                <p className="text-sm">
+                  {activeAction ? LOADING_MESSAGES[activeAction] : "Загрузка..."}
+                </p>
               </div>
             ) : result ? (
               <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">
