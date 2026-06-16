@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 
+type ParsedArticle = {
+  date: string | null;
+  title: string | null;
+  content: string | null;
+};
+
 type Action = "summary" | "theses" | "telegram";
 
 const ACTIONS: { id: Action; label: string; description: string }[] = [
@@ -51,14 +57,28 @@ export default function ReferentApp() {
     setIsLoading(true);
     setResult("");
 
-    // Заглушка до подключения API парсинга и AI
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const response = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmedUrl }),
+      });
 
-    const actionLabel = ACTIONS.find((a) => a.id === action)?.label ?? "";
-    setResult(
-      `Здесь появится результат для действия «${actionLabel}».\n\nСтатья: ${trimmedUrl}\n\nПодключение парсинга и AI будет добавлено на следующем этапе.`,
-    );
-    setIsLoading(false);
+      const data = (await response.json()) as ParsedArticle | { error?: string };
+
+      if (!response.ok) {
+        setError("error" in data && data.error ? data.error : "Ошибка парсинга статьи");
+        setResult("");
+        return;
+      }
+
+      setResult(JSON.stringify(data, null, 2));
+    } catch {
+      setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте снова.");
+      setResult("");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -135,7 +155,7 @@ export default function ReferentApp() {
             {isLoading ? (
               <div className="flex h-full min-h-56 flex-col items-center justify-center gap-3 text-slate-500">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
-                <p className="text-sm">Генерация ответа...</p>
+                <p className="text-sm">Загрузка и парсинг статьи...</p>
               </div>
             ) : result ? (
               <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">
