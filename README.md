@@ -1,5 +1,5 @@
 # Referent
-
+PROJECT.md - описание проекта
 Минимальное приложение на [Next.js](https://nextjs.org) с App Router и TypeScript.
 
 ## Запуск
