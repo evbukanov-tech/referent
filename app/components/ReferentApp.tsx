@@ -10,6 +10,34 @@ type ParsedArticle = {
 
 type Action = "summary" | "theses" | "telegram" | "translate";
 
+type LoadingPhase = "parsing" | "generating";
+
+const AI_ACTIONS: Record<
+  Action,
+  { endpoint: string; resultKey: string; errorMessage: string }
+> = {
+  translate: {
+    endpoint: "/api/translate",
+    resultKey: "translation",
+    errorMessage: "Ошибка перевода статьи",
+  },
+  summary: {
+    endpoint: "/api/summary",
+    resultKey: "summary",
+    errorMessage: "Ошибка генерации описания",
+  },
+  theses: {
+    endpoint: "/api/theses",
+    resultKey: "theses",
+    errorMessage: "Ошибка генерации тезисов",
+  },
+  telegram: {
+    endpoint: "/api/telegram",
+    resultKey: "post",
+    errorMessage: "Ошибка генерации поста",
+  },
+};
+
 const ACTIONS: { id: Action; label: string; description: string }[] = [
   {
     id: "translate",
@@ -33,11 +61,23 @@ const ACTIONS: { id: Action; label: string; description: string }[] = [
   },
 ];
 
-const LOADING_MESSAGES: Record<Action, string> = {
-  translate: "Перевод статьи...",
-  summary: "Загрузка и парсинг статьи...",
-  theses: "Загрузка и парсинг статьи...",
-  telegram: "Загрузка и парсинг статьи...",
+const LOADING_MESSAGES: Record<Action, Record<LoadingPhase, string>> = {
+  translate: {
+    parsing: "Загрузка и парсинг статьи...",
+    generating: "Перевод статьи...",
+  },
+  summary: {
+    parsing: "Загрузка и парсинг статьи...",
+    generating: "Генерация описания...",
+  },
+  theses: {
+    parsing: "Загрузка и парсинг статьи...",
+    generating: "Генерация тезисов...",
+  },
+  telegram: {
+    parsing: "Загрузка и парсинг статьи...",
+    generating: "Генерация поста...",
+  },
 };
 
 export default function ReferentApp() {
@@ -45,6 +85,7 @@ export default function ReferentApp() {
   const [activeAction, setActiveAction] = useState<Action | null>(null);
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("parsing");
   const [error, setError] = useState("");
 
   async function handleAction(action: Action) {
@@ -67,6 +108,7 @@ export default function ReferentApp() {
     setError("");
     setActiveAction(action);
     setIsLoading(true);
+    setLoadingPhase("parsing");
     setResult("");
 
     try {
@@ -85,36 +127,30 @@ export default function ReferentApp() {
       }
 
       const article = data as ParsedArticle;
+      const aiAction = AI_ACTIONS[action];
 
-      if (action === "translate") {
-        const translateResponse = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: article.title,
-            content: article.content,
-          }),
-        });
+      setLoadingPhase("generating");
 
-        const translateData = (await translateResponse.json()) as
-          | { translation?: string }
-          | { error?: string };
+      const aiResponse = await fetch(aiAction.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: article.title,
+          content: article.content,
+        }),
+      });
 
-        if (!translateResponse.ok) {
-          setError(
-            "error" in translateData && translateData.error
-              ? translateData.error
-              : "Ошибка перевода статьи",
-          );
-          setResult("");
-          return;
-        }
+      const aiData = (await aiResponse.json()) as Record<string, string | undefined> & {
+        error?: string;
+      };
 
-        setResult("translation" in translateData ? (translateData.translation ?? "") : "");
+      if (!aiResponse.ok) {
+        setError(aiData.error ?? aiAction.errorMessage);
+        setResult("");
         return;
       }
 
-      setResult(JSON.stringify(article, null, 2));
+      setResult(aiData[aiAction.resultKey] ?? "");
     } catch {
       setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте снова.");
       setResult("");
@@ -198,7 +234,9 @@ export default function ReferentApp() {
               <div className="flex h-full min-h-56 flex-col items-center justify-center gap-3 text-slate-500">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
                 <p className="text-sm">
-                  {activeAction ? LOADING_MESSAGES[activeAction] : "Загрузка..."}
+                  {activeAction
+                    ? LOADING_MESSAGES[activeAction][loadingPhase]
+                    : "Загрузка..."}
                 </p>
               </div>
             ) : result ? (
