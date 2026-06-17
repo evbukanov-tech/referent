@@ -137,6 +137,7 @@ export default function ReferentApp() {
         body: JSON.stringify({
           title: article.title,
           content: article.content,
+          ...(action === "telegram" ? { url: trimmedUrl } : {}),
         }),
       });
 
