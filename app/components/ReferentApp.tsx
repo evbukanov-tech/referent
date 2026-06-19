@@ -352,7 +352,7 @@ export default function ReferentApp() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/article"
+            placeholder="Введите URL статьи, например: https://example.com/article"
             className="mt-2 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 sm:text-sm"
           />
           <p className="mt-1.5 text-xs text-slate-500">Укажите ссылку на англоязычную статью</p>
