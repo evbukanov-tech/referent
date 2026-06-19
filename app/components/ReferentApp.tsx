@@ -218,22 +218,22 @@ export default function ReferentApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-10 sm:px-6 lg:px-8">
-        <header className="mb-10">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-900">
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+        <header className="mb-6 sm:mb-10">
           <p className="text-sm font-medium uppercase tracking-wider text-sky-600">
             Referent
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
             Анализ англоязычных статей
           </h1>
-          <p className="mt-3 max-w-2xl text-slate-600">
+          <p className="mt-3 max-w-2xl break-words text-slate-600">
             Вставьте ссылку на статью и выберите, что нужно сгенерировать с
             помощью AI.
           </p>
         </header>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <label htmlFor="article-url" className="block text-sm font-medium text-slate-700">
             URL англоязычной статьи
           </label>
@@ -242,12 +242,12 @@ export default function ReferentApp() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="Введите URL статьи, например: https://example.com/article"
-            className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+            placeholder="https://example.com/article"
+            className="mt-2 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 sm:text-sm"
           />
           <p className="mt-1.5 text-xs text-slate-500">Укажите ссылку на англоязычную статью</p>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             {ACTIONS.map((action) => {
               const isActive = activeAction === action.id && isLoading;
 
@@ -259,7 +259,7 @@ export default function ReferentApp() {
                   disabled={isLoading}
                   title={action.description}
                   className={[
-                    "inline-flex flex-1 items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition",
+                    "inline-flex w-full items-center justify-center rounded-xl px-3 py-3 text-sm font-medium transition",
                     "disabled:cursor-not-allowed disabled:opacity-60",
                     isActive
                       ? "bg-sky-700 text-white"
@@ -285,10 +285,12 @@ export default function ReferentApp() {
         </section>
 
         {errorCode && (
-          <Alert variant="destructive" className="mt-6">
+          <Alert variant="destructive" className="mt-6 break-words">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{getErrorTitle(errorCode)}</AlertTitle>
-            <AlertDescription>{getErrorMessage(errorCode)}</AlertDescription>
+            <AlertDescription className="break-words">
+              {getErrorMessage(errorCode)}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -299,17 +301,19 @@ export default function ReferentApp() {
             aria-live="polite"
           >
             <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-300 border-t-sky-600" />
-            <span>{LOADING_MESSAGES[activeAction][loadingPhase]}</span>
+            <span className="min-w-0 break-words">
+              {LOADING_MESSAGES[activeAction][loadingPhase]}
+            </span>
           </div>
         )}
 
         <section
           ref={resultSectionRef}
-          className="mt-6 flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm scroll-mt-6"
+          className="mt-6 flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm scroll-mt-6 sm:p-6"
         >
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-slate-900">Результат</h2>
-            <div className="flex items-center gap-2">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="shrink-0 text-lg font-semibold text-slate-900">Результат</h2>
+            <div className="flex flex-wrap items-center gap-2">
               {activeAction && !isLoading && (
                 <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
                   {ACTIONS.find((a) => a.id === activeAction)?.label}
@@ -319,7 +323,7 @@ export default function ReferentApp() {
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   {copied ? "Скопировано" : "Копировать"}
                 </button>
@@ -327,13 +331,13 @@ export default function ReferentApp() {
             </div>
           </div>
 
-          <div className="min-h-64 flex-1 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
+          <div className="min-h-48 flex-1 overflow-hidden rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 sm:min-h-64">
             {isLoading ? (
               <div className="flex h-full min-h-56 items-center justify-center text-slate-400">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
               </div>
             ) : result ? (
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-800">
                 {result}
               </pre>
             ) : (
