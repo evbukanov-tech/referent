@@ -16,7 +16,7 @@ type ParsedArticle = {
   content: string | null;
 };
 
-type Action = "summary" | "theses" | "telegram" | "translate";
+type Action = "summary" | "theses" | "telegram" | "translate" | "illustration";
 
 type LoadingPhase = "parsing" | "generating";
 
@@ -55,6 +55,11 @@ const AI_ACTIONS: Record<
     resultKey: "post",
     fallbackError: "AI_TELEGRAM_FAILED",
   },
+  illustration: {
+    endpoint: "/api/illustration",
+    resultKey: "image",
+    fallbackError: "AI_ILLUSTRATION_FAILED",
+  },
 };
 
 const ACTIONS: { id: Action; label: string; description: string }[] = [
@@ -77,6 +82,11 @@ const ACTIONS: { id: Action; label: string; description: string }[] = [
     id: "telegram",
     label: "Пост для Telegram",
     description: "Готовый пост для публикации в Telegram",
+  },
+  {
+    id: "illustration",
+    label: "Иллюстрация",
+    description: "Иллюстрация по теме статьи",
   },
 ];
 
@@ -102,6 +112,10 @@ const LOADING_MESSAGES: Record<Action, Record<LoadingPhase, string>> = {
     parsing: "Загружаю статью…",
     generating: "Генерирую пост…",
   },
+  illustration: {
+    parsing: "Загружаю статью…",
+    generating: "Создаю промпт и генерирую иллюстрацию…",
+  },
 };
 
 const ERROR_TITLES: Partial<Record<ErrorCode, string>> = {
@@ -116,6 +130,7 @@ const ERROR_TITLES: Partial<Record<ErrorCode, string>> = {
   AI_SUMMARY_FAILED: "Ошибка описания",
   AI_THESES_FAILED: "Ошибка тезисов",
   AI_TELEGRAM_FAILED: "Ошибка поста",
+  AI_ILLUSTRATION_FAILED: "Ошибка иллюстрации",
   NETWORK_ERROR: "Проблема с соединением",
   INVALID_REQUEST: "Ошибка запроса",
 };
@@ -208,6 +223,15 @@ export default function ReferentApp() {
     }
   }
 
+  function handleDownloadImage() {
+    if (!result || activeAction !== "illustration") return;
+
+    const link = document.createElement("a");
+    link.href = result;
+    link.download = "illustration.png";
+    link.click();
+  }
+
   function handleUseHistory(item: HistoryItem) {
     if (isLoading) return;
 
@@ -295,7 +319,7 @@ export default function ReferentApp() {
       const generatedResult = (aiData as Record<string, string | undefined>)[aiAction.resultKey] ?? "";
       setResult(generatedResult);
 
-      if (generatedResult) {
+      if (generatedResult && action !== "illustration") {
         setHistory((prevHistory) => {
           const nextHistory: HistoryItem[] = [
             {
@@ -357,7 +381,7 @@ export default function ReferentApp() {
           />
           <p className="mt-1.5 text-xs text-slate-500">Укажите ссылку на англоязычную статью</p>
 
-          <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ACTIONS.map((action) => {
               const isActive = activeAction === action.id && isLoading;
 
@@ -479,7 +503,16 @@ export default function ReferentApp() {
                   {ACTIONS.find((a) => a.id === activeAction)?.label}
                 </span>
               )}
-              {result && !isLoading && (
+              {result && !isLoading && activeAction === "illustration" && (
+                <button
+                  type="button"
+                  onClick={handleDownloadImage}
+                  className="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  Скачать
+                </button>
+              )}
+              {result && !isLoading && activeAction !== "illustration" && (
                 <button
                   type="button"
                   onClick={handleCopy}
@@ -495,6 +528,15 @@ export default function ReferentApp() {
             {isLoading ? (
               <div className="flex h-full min-h-56 items-center justify-center text-slate-400">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
+              </div>
+            ) : result && activeAction === "illustration" ? (
+              <div className="flex flex-col items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={result}
+                  alt="Иллюстрация по теме статьи"
+                  className="max-h-[32rem] w-full rounded-lg object-contain"
+                />
               </div>
             ) : result ? (
               <pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-800">

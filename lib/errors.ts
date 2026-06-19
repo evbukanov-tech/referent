@@ -11,6 +11,7 @@ export type ErrorCode =
   | "AI_SUMMARY_FAILED"
   | "AI_THESES_FAILED"
   | "AI_TELEGRAM_FAILED"
+  | "AI_ILLUSTRATION_FAILED"
   | "NETWORK_ERROR";
 
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
@@ -26,6 +27,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   AI_SUMMARY_FAILED: "Не удалось сгенерировать описание. Попробуйте позже.",
   AI_THESES_FAILED: "Не удалось сгенерировать тезисы. Попробуйте позже.",
   AI_TELEGRAM_FAILED: "Не удалось сгенерировать пост. Попробуйте позже.",
+  AI_ILLUSTRATION_FAILED: "Не удалось сгенерировать иллюстрацию. Попробуйте позже.",
   NETWORK_ERROR: "Не удалось выполнить запрос. Проверьте соединение и попробуйте снова.",
 };
 
