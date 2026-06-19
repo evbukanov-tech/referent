@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -109,12 +109,43 @@ function getErrorTitle(code: ErrorCode): string {
 }
 
 export default function ReferentApp() {
+  const resultSectionRef = useRef<HTMLElement>(null);
   const [url, setUrl] = useState("");
   const [activeAction, setActiveAction] = useState<Action | null>(null);
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("parsing");
   const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (result && !isLoading) {
+      resultSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [result, isLoading]);
+
+  function handleClear() {
+    if (isLoading) return;
+
+    setUrl("");
+    setActiveAction(null);
+    setResult("");
+    setErrorCode(null);
+    setLoadingPhase("parsing");
+    setCopied(false);
+  }
+
+  async function handleCopy() {
+    if (!result) return;
+
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard API may be unavailable
+    }
+  }
 
   async function handleAction(action: Action) {
     const trimmedUrl = url.trim();
@@ -240,6 +271,17 @@ export default function ReferentApp() {
               );
             })}
           </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleClear}
+              disabled={isLoading}
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Очистить
+            </button>
+          </div>
         </section>
 
         {errorCode && (
@@ -261,14 +303,28 @@ export default function ReferentApp() {
           </div>
         )}
 
-        <section className="mt-6 flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section
+          ref={resultSectionRef}
+          className="mt-6 flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm scroll-mt-6"
+        >
           <div className="mb-4 flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-slate-900">Результат</h2>
-            {activeAction && !isLoading && (
-              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-                {ACTIONS.find((a) => a.id === activeAction)?.label}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {activeAction && !isLoading && (
+                <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+                  {ACTIONS.find((a) => a.id === activeAction)?.label}
+                </span>
+              )}
+              {result && !isLoading && (
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  {copied ? "Скопировано" : "Копировать"}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="min-h-64 flex-1 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
