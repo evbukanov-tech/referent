@@ -63,20 +63,20 @@ const ACTIONS: { id: Action; label: string; description: string }[] = [
 
 const LOADING_MESSAGES: Record<Action, Record<LoadingPhase, string>> = {
   translate: {
-    parsing: "Загрузка и парсинг статьи...",
-    generating: "Перевод статьи...",
+    parsing: "Загружаю статью…",
+    generating: "Перевожу статью…",
   },
   summary: {
-    parsing: "Загрузка и парсинг статьи...",
-    generating: "Генерация описания...",
+    parsing: "Загружаю статью…",
+    generating: "Генерирую описание…",
   },
   theses: {
-    parsing: "Загрузка и парсинг статьи...",
-    generating: "Генерация тезисов...",
+    parsing: "Загружаю статью…",
+    generating: "Генерирую тезисы…",
   },
   telegram: {
-    parsing: "Загрузка и парсинг статьи...",
-    generating: "Генерация поста...",
+    parsing: "Загружаю статью…",
+    generating: "Генерирую пост…",
   },
 };
 
@@ -185,9 +185,10 @@ export default function ReferentApp() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/article"
+            placeholder="Введите URL статьи, например: https://example.com/article"
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
           />
+          <p className="mt-1.5 text-xs text-slate-500">Укажите ссылку на англоязычную статью</p>
           {error && (
             <p className="mt-2 text-sm text-red-600" role="alert">
               {error}
@@ -220,6 +221,17 @@ export default function ReferentApp() {
           </div>
         </section>
 
+        {isLoading && activeAction && (
+          <div
+            className="mt-6 flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-300 border-t-sky-600" />
+            <span>{LOADING_MESSAGES[activeAction][loadingPhase]}</span>
+          </div>
+        )}
+
         <section className="mt-6 flex flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-slate-900">Результат</h2>
@@ -232,13 +244,8 @@ export default function ReferentApp() {
 
           <div className="min-h-64 flex-1 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
             {isLoading ? (
-              <div className="flex h-full min-h-56 flex-col items-center justify-center gap-3 text-slate-500">
+              <div className="flex h-full min-h-56 items-center justify-center text-slate-400">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
-                <p className="text-sm">
-                  {activeAction
-                    ? LOADING_MESSAGES[activeAction][loadingPhase]
-                    : "Загрузка..."}
-                </p>
               </div>
             ) : result ? (
               <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">
