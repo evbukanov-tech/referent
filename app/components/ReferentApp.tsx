@@ -20,6 +20,17 @@ type Action = "summary" | "theses" | "telegram" | "translate";
 
 type LoadingPhase = "parsing" | "generating";
 
+type HistoryItem = {
+  id: string;
+  url: string;
+  action: Action;
+  result: string;
+  createdAt: string;
+};
+
+const HISTORY_STORAGE_KEY = "referent:last-requests";
+const HISTORY_LIMIT = 20;
+
 const AI_ACTIONS: Record<
   Action,
   { endpoint: string; resultKey: string; fallbackError: ErrorCode }
@@ -69,6 +80,11 @@ const ACTIONS: { id: Action; label: string; description: string }[] = [
   },
 ];
 
+const ACTION_LABELS: Record<Action, string> = ACTIONS.reduce(
+  (acc, action) => ({ ...acc, [action.id]: action.label }),
+  {} as Record<Action, string>,
+);
+
 const LOADING_MESSAGES: Record<Action, Record<LoadingPhase, string>> = {
   translate: {
     parsing: "Загружаю статью…",
@@ -108,6 +124,45 @@ function getErrorTitle(code: ErrorCode): string {
   return ERROR_TITLES[code] ?? "Что-то пошло не так";
 }
 
+function isAction(value: unknown): value is Action {
+  return typeof value === "string" && value in AI_ACTIONS;
+}
+
+function parseHistory(raw: string | null): HistoryItem[] {
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item): item is HistoryItem => {
+        if (!item || typeof item !== "object") return false;
+        const candidate = item as Partial<HistoryItem>;
+
+        return (
+          typeof candidate.id === "string" &&
+          typeof candidate.url === "string" &&
+          isAction(candidate.action) &&
+          typeof candidate.result === "string" &&
+          typeof candidate.createdAt === "string"
+        );
+      })
+      .slice(0, HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function persistHistory(items: HistoryItem[]) {
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // localStorage may be unavailable in private/restricted mode
+  }
+}
+
 export default function ReferentApp() {
   const resultSectionRef = useRef<HTMLElement>(null);
   const [url, setUrl] = useState("");
@@ -117,12 +172,18 @@ export default function ReferentApp() {
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("parsing");
   const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
     if (result && !isLoading) {
       resultSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [result, isLoading]);
+
+  useEffect(() => {
+    const saved = parseHistory(window.localStorage.getItem(HISTORY_STORAGE_KEY));
+    setHistory(saved);
+  }, []);
 
   function handleClear() {
     if (isLoading) return;
@@ -144,6 +205,29 @@ export default function ReferentApp() {
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       // clipboard API may be unavailable
+    }
+  }
+
+  function handleUseHistory(item: HistoryItem) {
+    if (isLoading) return;
+
+    setUrl(item.url);
+    setActiveAction(item.action);
+    setResult(item.result);
+    setErrorCode(null);
+    setLoadingPhase("parsing");
+    setCopied(false);
+  }
+
+  function handleClearHistory() {
+    if (isLoading) return;
+
+    setHistory([]);
+
+    try {
+      window.localStorage.removeItem(HISTORY_STORAGE_KEY);
+    } catch {
+      // localStorage may be unavailable in private/restricted mode
     }
   }
 
@@ -208,7 +292,33 @@ export default function ReferentApp() {
         return;
       }
 
-      setResult((aiData as Record<string, string | undefined>)[aiAction.resultKey] ?? "");
+      const generatedResult = (aiData as Record<string, string | undefined>)[aiAction.resultKey] ?? "";
+      setResult(generatedResult);
+
+      if (generatedResult) {
+        setHistory((prevHistory) => {
+          const nextHistory: HistoryItem[] = [
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+              url: trimmedUrl,
+              action,
+              result: generatedResult,
+              createdAt: new Date().toISOString(),
+            },
+            ...prevHistory.filter(
+              (entry) =>
+                !(
+                  entry.url === trimmedUrl &&
+                  entry.action === action &&
+                  entry.result === generatedResult
+                ),
+            ),
+          ].slice(0, HISTORY_LIMIT);
+
+          persistHistory(nextHistory);
+          return nextHistory;
+        });
+      }
     } catch {
       setErrorCode("NETWORK_ERROR");
       setResult("");
@@ -283,6 +393,56 @@ export default function ReferentApp() {
             </button>
           </div>
         </section>
+
+        {history.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Последние запросы</h2>
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                disabled={isLoading}
+                className="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Очистить историю
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {history.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-700">
+                      {ACTION_LABELS[item.action]}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {new Date(item.createdAt).toLocaleString("ru-RU")}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 break-all text-xs text-slate-600">{item.url}</p>
+                  <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm text-slate-700">
+                    {item.result}
+                  </p>
+
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => handleUseHistory(item)}
+                      disabled={isLoading}
+                      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Открыть результат
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         {errorCode && (
           <Alert variant="destructive" className="mt-6 break-words">
