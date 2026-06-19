@@ -1,4 +1,5 @@
 import { buildArticleText } from "@/lib/articleText";
+import { apiError } from "@/lib/errors";
 import { chatCompletion } from "@/lib/openrouter";
 import { NextResponse } from "next/server";
 
@@ -8,13 +9,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Некорректное тело запроса" }, { status: 400 });
+    return apiError("INVALID_REQUEST", 400);
   }
 
   const articleText = buildArticleText(body.title, body.content);
 
   if (!articleText) {
-    return NextResponse.json({ error: "Нет текста статьи для анализа" }, { status: 400 });
+    return apiError("NO_ARTICLE_TEXT", 400);
   }
 
   try {
@@ -31,8 +32,7 @@ export async function POST(request: Request) {
     ]);
 
     return NextResponse.json({ summary });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Ошибка генерации описания";
-    return NextResponse.json({ error: message }, { status: 502 });
+  } catch {
+    return apiError("AI_SUMMARY_FAILED", 502);
   }
 }

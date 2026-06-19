@@ -1,6 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { AlertCircle } from "lucide-react";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  type ErrorCode,
+  getErrorMessage,
+  parseApiErrorCode,
+} from "@/lib/errors";
 
 type ParsedArticle = {
   date: string | null;
@@ -14,27 +22,27 @@ type LoadingPhase = "parsing" | "generating";
 
 const AI_ACTIONS: Record<
   Action,
-  { endpoint: string; resultKey: string; errorMessage: string }
+  { endpoint: string; resultKey: string; fallbackError: ErrorCode }
 > = {
   translate: {
     endpoint: "/api/translate",
     resultKey: "translation",
-    errorMessage: "Ошибка перевода статьи",
+    fallbackError: "AI_TRANSLATION_FAILED",
   },
   summary: {
     endpoint: "/api/summary",
     resultKey: "summary",
-    errorMessage: "Ошибка генерации описания",
+    fallbackError: "AI_SUMMARY_FAILED",
   },
   theses: {
     endpoint: "/api/theses",
     resultKey: "theses",
-    errorMessage: "Ошибка генерации тезисов",
+    fallbackError: "AI_THESES_FAILED",
   },
   telegram: {
     endpoint: "/api/telegram",
     resultKey: "post",
-    errorMessage: "Ошибка генерации поста",
+    fallbackError: "AI_TELEGRAM_FAILED",
   },
 };
 
@@ -80,19 +88,39 @@ const LOADING_MESSAGES: Record<Action, Record<LoadingPhase, string>> = {
   },
 };
 
+const ERROR_TITLES: Partial<Record<ErrorCode, string>> = {
+  URL_REQUIRED: "Укажите ссылку",
+  INVALID_URL: "Некорректный URL",
+  ARTICLE_FETCH_FAILED: "Статья недоступна",
+  NOT_HTML: "Неподходящий формат",
+  ARTICLE_PARSE_FAILED: "Не удалось прочитать статью",
+  NO_ARTICLE_TEXT: "Мало текста",
+  AI_SERVICE_UNAVAILABLE: "AI недоступен",
+  AI_TRANSLATION_FAILED: "Ошибка перевода",
+  AI_SUMMARY_FAILED: "Ошибка описания",
+  AI_THESES_FAILED: "Ошибка тезисов",
+  AI_TELEGRAM_FAILED: "Ошибка поста",
+  NETWORK_ERROR: "Проблема с соединением",
+  INVALID_REQUEST: "Ошибка запроса",
+};
+
+function getErrorTitle(code: ErrorCode): string {
+  return ERROR_TITLES[code] ?? "Что-то пошло не так";
+}
+
 export default function ReferentApp() {
   const [url, setUrl] = useState("");
   const [activeAction, setActiveAction] = useState<Action | null>(null);
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("parsing");
-  const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
 
   async function handleAction(action: Action) {
     const trimmedUrl = url.trim();
 
     if (!trimmedUrl) {
-      setError("Введите URL англоязычной статьи");
+      setErrorCode("URL_REQUIRED");
       setResult("");
       return;
     }
@@ -100,12 +128,12 @@ export default function ReferentApp() {
     try {
       new URL(trimmedUrl);
     } catch {
-      setError("Введите корректный URL (например, https://example.com/article)");
+      setErrorCode("INVALID_URL");
       setResult("");
       return;
     }
 
-    setError("");
+    setErrorCode(null);
     setActiveAction(action);
     setIsLoading(true);
     setLoadingPhase("parsing");
@@ -118,10 +146,10 @@ export default function ReferentApp() {
         body: JSON.stringify({ url: trimmedUrl }),
       });
 
-      const data = (await response.json()) as ParsedArticle | { error?: string };
+      const data = (await response.json()) as ParsedArticle | unknown;
 
       if (!response.ok) {
-        setError("error" in data && data.error ? data.error : "Ошибка парсинга статьи");
+        setErrorCode(parseApiErrorCode(data) ?? "ARTICLE_FETCH_FAILED");
         setResult("");
         return;
       }
@@ -141,19 +169,17 @@ export default function ReferentApp() {
         }),
       });
 
-      const aiData = (await aiResponse.json()) as Record<string, string | undefined> & {
-        error?: string;
-      };
+      const aiData = (await aiResponse.json()) as Record<string, string | undefined> | unknown;
 
       if (!aiResponse.ok) {
-        setError(aiData.error ?? aiAction.errorMessage);
+        setErrorCode(parseApiErrorCode(aiData) ?? aiAction.fallbackError);
         setResult("");
         return;
       }
 
-      setResult(aiData[aiAction.resultKey] ?? "");
+      setResult((aiData as Record<string, string | undefined>)[aiAction.resultKey] ?? "");
     } catch {
-      setError("Не удалось выполнить запрос. Проверьте соединение и попробуйте снова.");
+      setErrorCode("NETWORK_ERROR");
       setResult("");
     } finally {
       setIsLoading(false);
@@ -189,11 +215,6 @@ export default function ReferentApp() {
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
           />
           <p className="mt-1.5 text-xs text-slate-500">Укажите ссылку на англоязычную статью</p>
-          {error && (
-            <p className="mt-2 text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          )}
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {ACTIONS.map((action) => {
@@ -220,6 +241,14 @@ export default function ReferentApp() {
             })}
           </div>
         </section>
+
+        {errorCode && (
+          <Alert variant="destructive" className="mt-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{getErrorTitle(errorCode)}</AlertTitle>
+            <AlertDescription>{getErrorMessage(errorCode)}</AlertDescription>
+          </Alert>
+        )}
 
         {isLoading && activeAction && (
           <div

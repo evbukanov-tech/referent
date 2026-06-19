@@ -1,4 +1,5 @@
 import { buildArticleText } from "@/lib/articleText";
+import { apiError } from "@/lib/errors";
 import { chatCompletion } from "@/lib/openrouter";
 import { NextResponse } from "next/server";
 
@@ -8,13 +9,13 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Некорректное тело запроса" }, { status: 400 });
+    return apiError("INVALID_REQUEST", 400);
   }
 
   const articleText = buildArticleText(body.title, body.content);
 
   if (!articleText) {
-    return NextResponse.json({ error: "Нет текста статьи для анализа" }, { status: 400 });
+    return apiError("NO_ARTICLE_TEXT", 400);
   }
 
   const sourceUrl = body.url?.trim() ?? "";
@@ -35,8 +36,7 @@ export async function POST(request: Request) {
     const post = sourceUrl ? `${postBody}\n\nИсточник: ${sourceUrl}` : postBody;
 
     return NextResponse.json({ post });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Ошибка генерации поста";
-    return NextResponse.json({ error: message }, { status: 502 });
+  } catch {
+    return apiError("AI_TELEGRAM_FAILED", 502);
   }
 }

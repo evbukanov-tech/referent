@@ -1,4 +1,5 @@
 import { parseArticleHtml } from "@/lib/parseArticle";
+import { apiError } from "@/lib/errors";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -7,19 +8,19 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Некорректное тело запроса" }, { status: 400 });
+    return apiError("INVALID_REQUEST", 400);
   }
 
   const url = body.url?.trim();
 
   if (!url) {
-    return NextResponse.json({ error: "URL не указан" }, { status: 400 });
+    return apiError("URL_REQUIRED", 400);
   }
 
   try {
     new URL(url);
   } catch {
-    return NextResponse.json({ error: "Некорректный URL" }, { status: 400 });
+    return apiError("INVALID_URL", 400);
   }
 
   let response: Response;
@@ -34,36 +35,24 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(15000),
     });
   } catch {
-    return NextResponse.json(
-      { error: "Не удалось загрузить страницу. Проверьте URL и доступность сайта." },
-      { status: 502 },
-    );
+    return apiError("ARTICLE_FETCH_FAILED", 502);
   }
 
   if (!response.ok) {
-    return NextResponse.json(
-      { error: `Сайт вернул ошибку: HTTP ${response.status}` },
-      { status: 502 },
-    );
+    return apiError("ARTICLE_FETCH_FAILED", 502);
   }
 
   const contentType = response.headers.get("content-type") ?? "";
 
   if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
-    return NextResponse.json(
-      { error: "По URL не HTML-страница" },
-      { status: 422 },
-    );
+    return apiError("NOT_HTML", 422);
   }
 
   const html = await response.text();
   const article = parseArticleHtml(html);
 
   if (!article.title && !article.content) {
-    return NextResponse.json(
-      { error: "Не удалось извлечь заголовок и контент статьи" },
-      { status: 422 },
-    );
+    return apiError("ARTICLE_PARSE_FAILED", 422);
   }
 
   return NextResponse.json(article);
